@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { TextInput } from "react-native-gesture-handler";
 import { CommonActions } from "@react-navigation/routers";
 import ColorSelector from "../components/ColorSelector";
+import Button from "../components/Button";
 
 const colorList = [
   "blue",
@@ -65,21 +66,17 @@ export default ({ navigation, route }) => {
           colorOptions={colorList}
         />
       </View>
-      <TouchableOpacity
+      <Button
+        text="Save"
         onPress={() => {
-          if (title.length > 1) {
+          if (title.length > 0) {
             route.params.saveChanges({ title, color });
             navigation.dispatch(CommonActions.goBack());
           } else {
             setValidity(false);
           }
         }}
-        style={styles.saveButton}
-      >
-        <Text style={{ color: "white", fontSize: 24, fontWeight: "bold" }}>
-          Save
-        </Text>
-      </TouchableOpacity>
+      />
     </View>
   );
 };

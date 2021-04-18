@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect, useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,14 @@ import {
 } from "react-native";
 import Colors from "../constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  onSnapshot,
+  addDoc,
+  removeDoc,
+  updateDoc,
+} from "../services/collections";
+import firebase, { auth } from "firebase";
+import "@firebase/firestore";
 
 const ListButton = ({ title, color, onPress, onDelete, onOptions }) => {
   return (
@@ -33,36 +41,65 @@ const ListButton = ({ title, color, onPress, onDelete, onOptions }) => {
 
 const renderAddListIcon = (navigation, addItemToLists) => {
   return (
-    <TouchableOpacity
-      onPress={() =>
-        navigation.navigate("Edit", { saveChanges: addItemToLists })
-      }
-    >
-      <Text style={styles.icon}>+</Text>
-    </TouchableOpacity>
+    <View style={{ flexDirection: "row" }}>
+      <TouchableOpacity
+        style={{ justifyContent: "center", marginRight: 4 }}
+        onPress={() => navigation.navigate("Settings")}
+      >
+        <Ionicons name="settings" size={16} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={{ justifyContent: "center", marginRight: 8 }}
+        onPress={() =>
+          navigation.navigate("Edit", { saveChanges: addItemToLists })
+        }
+      >
+        <Text style={styles.icon}>+</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
 export default ({ navigation }) => {
-  const [lists, setLists] = useState([
-    { title: "School", color: Colors.red },
-    { title: "Work", color: Colors.green },
-    { title: "Fun", color: Colors.blue },
-  ]);
+  const [lists, setLists] = useState([]);
+  const listsRef = firebase
+    .firestore()
+    .collection("users")
+    .doc(auth().currentUser.uid)
+    .collection("lists");
 
-  const addItemToLists = (item) => {
-    lists.push(item);
-    setLists([...lists]);
+  useEffect(() => {
+    onSnapshot(
+      listsRef,
+      (newLists) => {
+        setLists(newLists);
+      },
+      {
+        sort: (a, b) => {
+          if (a.index < b.index) {
+            return -1;
+          }
+          if (a.index > b.index) {
+            return 1;
+          }
+
+          return 0;
+        },
+      }
+    );
+  }, []);
+
+  const addItemToLists = ({ title, color }) => {
+    const index = lists.length > 1 ? lists[lists.length - 1].index + 1 : 0;
+    addDoc(listsRef, { title, color, index });
   };
 
-  const removeItemFromLists = (index) => {
-    lists.splice(index, 1);
-    setLists([...lists]);
+  const removeItemFromLists = (id) => {
+    removeDoc(listsRef, id)
   };
 
-  const updateItemFromLists = (index, item) => {
-    lists[index] = item;
-    setLists([...lists]);
+  const updateItemFromLists = (id, item) => {
+    updateDoc(listsRef, id, item)
   };
 
   useLayoutEffect(() => {
@@ -75,23 +112,23 @@ export default ({ navigation }) => {
     <View style={styles.container}>
       <FlatList
         data={lists}
-        renderItem={({ item: { title, color }, index }) => {
+        renderItem={({ item: { title, color, id, index }}) => {
           return (
             <ListButton
               title={title}
               color={color}
               onPress={() => {
-                navigation.navigate("Location", { title, color });
+                navigation.navigate("Location", { title, color, listId: id });
               }}
               onOptions={() => {
                 navigation.navigate("Edit", {
                   title,
                   color,
-                  saveChanges: (item) => updateItemFromLists(index, item),
+                  saveChanges: (newItem) => updateItemFromLists(id, {index, ...newItem}),
                 });
               }}
               navigation={navigation}
-              onDelete={() => removeItemFromLists(index)}
+              onDelete={() => removeItemFromLists(id)}
             />
           );
         }}

@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from "react";
+import React, { useState, useLayoutEffect, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -6,11 +6,20 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
+  Button,
 } from "react-native";
 import Colors from "../constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import PopcornForm from "./PopcornForm";
 import BagItem from "../components/BagItem";
+import {
+  onSnapshot,
+  addDoc,
+  removeDoc,
+  updateDoc,
+} from "../services/collections";
+import firebase, { auth } from "firebase";
+import "@firebase/firestore";
 
 const renderAddBagIcon = (setModalOpen) => {
   return (
@@ -25,20 +34,74 @@ const renderAddBagIcon = (setModalOpen) => {
   );
 };
 
-export default ({ navigation }) => {
+export default ({ navigation, route }) => {
+  const getCurrentDate = () => {
+    var date = new Date().getDate();
+    var month = new Date().getMonth() + 1;
+    var year = new Date().getFullYear();
+
+    return month + "-" + date + "-" + year; //format: dd-mm-yyyy;
+  };
+
   const [modalOpen, setModalOpen] = useState(false);
 
-  const [popcornBags, setPopcornBags] = useState([
-    { brand: "Orville", date: "today", isChecked: false },
+  let [popcornBags, setPopcornBags] = useState([
+    //{ brand: "Orville", date: "", isChecked: false },
   ]);
+  const [newItem, setNewItem] = useState();
+
+  const popcornBagItemRef = firebase
+    .firestore()
+    .collection("users")
+    .doc(auth().currentUser.uid)
+    .collection("lists")
+    .doc(route.params.listId)
+    .collection("bag");
+
+  useEffect(() => {
+    onSnapshot(
+      popcornBagItemRef,
+      (newBag) => {
+        setPopcornBags(newBag);
+      },
+      {
+        sort: (a, b) => {
+          if (a.isChecked && !b.isChecked) {
+            return 1;
+          }
+          if (b.isChecked && !a.isChecked) {
+            return -1;
+          }
+
+          return 0;
+        },
+      }
+    );
+  }, []);
 
   const addBagToLists = (item) => {
+    // for (let i = 0; i < item.bagCount; i++) {
+    //   const newItem = {
+    //     brand: item.brand,
+    //     date: getCurrentDate(),
+    //     isChecked: false,
+    //   };
+
+    //   popcornBags.push(newItem);
+    // }
+    // setPopcornBags([...popcornBags]);
+    //setModalOpen(false);
+
     for (let i = 0; i < item.bagCount; i++) {
-      const newItem = {brand: item.brand, date: item.date, isChecked: false};
-      console.log(newItem)
-      popcornBags.push(newItem);
+      let newItem = {
+        brand: item.brand,
+        date: getCurrentDate(),
+        isChecked: false,
+      };
+      
+      addDoc(popcornBagItemRef, newItem);
+      popcornBags = [newItem, ...popcornBags]
     }
-    setPopcornBags([...popcornBags]);
     setModalOpen(false);
   };
 
@@ -50,7 +113,7 @@ export default ({ navigation }) => {
   const updateItem = (index, item) => {
     popcornBags[index] = item;
     setPopcornBags([...popcornBags]);
-  }
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -63,25 +126,37 @@ export default ({ navigation }) => {
       <Modal visible={modalOpen} animationType="slide">
         <View style={styles.modalContent}>
           <TouchableOpacity onPress={() => setModalOpen(false)}>
-            <Text style={{ fontSize: 14 }}>Close Modal</Text>
+            <Text
+              style={{
+                backgroundColor: "gray",
+                color: "white",
+                padding: 5,
+                fontSize: 20,
+              }}
+            >
+              X
+            </Text>
           </TouchableOpacity>
           <PopcornForm addBagToLists={addBagToLists} />
         </View>
       </Modal>
       <FlatList
         data={popcornBags}
-        renderItem={({ item: { brand, date, isChecked }, index }) => {
+        renderItem={({ item: { id, brand, date, isChecked }, index }) => {
           return (
             <BagItem
               brand={brand}
               isChecked={isChecked}
               date={date}
-              onChecked={() => {
-                const item = popcornBags[index];
-                item.isChecked = !isChecked;
-                updateItem(index, item)
+              // onChecked={() => {
+              //   let item = popcornBags[index];
+              //   item.isChecked = !isChecked;
+              //   updateItem(index, item);
+              // }}
+              onDelete={() => {
+                removeItemFromLists(index);
+                id && removeDoc(popcornBagItemRef, id);
               }}
-              onDelete={() => removeItemFromLists(index)}
             />
           );
         }}
@@ -103,7 +178,7 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     flexDirection: "column",
-    alignItems: "center",
+    alignItems: "flex-end",
     padding: 50,
   },
 });

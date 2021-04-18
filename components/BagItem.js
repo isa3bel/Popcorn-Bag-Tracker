@@ -8,14 +8,13 @@ import {
   Modal,
 } from "react-native";
 import Colors from "../constants/Colors";
-import { Ionicons } from "@expo/vector-icons";
 import Checkbox from "./Checkbox";
 
 export default ({ brand, date, isChecked, onChecked, onDelete }) => {
   return (
     <View style={styles.container}>
       <View style={{ flexDirection: "row", flex: 1 }}>
-        <Checkbox isChecked={isChecked} onChecked={onChecked} />
+        {/*<Checkbox isChecked={isChecked} onChecked={onChecked} />*/}
         <Text
           style={[
             styles.text,
@@ -25,7 +24,7 @@ export default ({ brand, date, isChecked, onChecked, onDelete }) => {
             },
           ]}
         >
-          Brand: {brand} Date: {date}
+          {brand}                            {date}
         </Text>
       </View>
       <TouchableOpacity onPress={onDelete}>
